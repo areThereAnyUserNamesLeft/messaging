@@ -62,7 +62,6 @@ func broadcast() {
 func handleConn(conn net.Conn) {
 	ch := make(chan string) // outgoing client messages
 	go clientWriter(conn, ch)
-
 	who := conn.RemoteAddr().String() // return here change IP to UiD
 	fmt.Println(conn.RemoteAddr().String())
 	fmt.Println(conn.LocalAddr().String())
@@ -74,11 +73,9 @@ func handleConn(conn net.Conn) {
 
 	input := bufio.NewScanner(conn)
 	for input.Scan() {
-		log.Println(clientList[who] + " :sent " + input.Text())
-		if strings.Index(input.Text(), "Relay") != -1 {
+		if firstWord(input.Text()) == "relay:" {
 			messages <- message.RelayMess(input.Text(), clientList[who])
-		}
-		if strings.Index(input.Text(), "List") != -1 {
+		} else if firstWord(input.Text()) == "list:" {
 			v := make([]string, len(clientList))
 			idx := 0
 			for _, value := range clientList {
@@ -87,15 +84,32 @@ func handleConn(conn net.Conn) {
 			}
 
 			ch <- message.ListMess(strings.Join(v, "\n"), clientList[who])
-		}
-		if strings.Index(input.Text(), "Identity") != -1 {
+		} else if firstWord(input.Text()) == "identity:" {
 			ch <- message.ListMess(clientList[who], clientList[who])
+		} else {
+			advice := " :no messaging protocol used - Please make sure you prefix your message with 'List:', 'Identify': or 'Reply:' then <your message> \n"
+			ch <- clientList[who] + advice + input.Text()
+			ch <- "Don't forget your colon ':' (always good advice!) :)"
+
 		}
 	}
 	// Needs error handling for input.Err()
 	leaving <- ch
 	log.Println(clientList[who] + " disconnected")
 	conn.Close()
+}
+
+func firstWord(str string) string {
+	count := 1
+	for i := range str {
+		if str[i] == ' ' {
+			count -= 1
+			if count == 0 {
+				return strings.ToLower(str[0:i])
+			}
+		}
+	}
+	return strings.ToLower(str)
 }
 
 func clientWriter(conn net.Conn, ch <-chan string) {
