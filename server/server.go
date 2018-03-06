@@ -33,7 +33,6 @@ var (
 	entering = make(chan client)
 	leaving  = make(chan client)
 	messages = make(chan string) // All messages from clients
-	private  = make(chan string) // Messages for this client clients
 )
 
 func broadcast() {
@@ -41,12 +40,6 @@ func broadcast() {
 
 	for {
 		select {
-		case prv := <-private:
-			for cli := range clients {
-				log.Println(cli)
-				log.Println(clients[cli])
-				log.Println(prv)
-			}
 		case msg := <-messages:
 			// Send incoming messages to all clients outgoing message channel
 			for cli := range clients {
@@ -93,10 +86,10 @@ func handleConn(conn net.Conn) {
 				idx++
 			}
 
-			private <- message.ListMess(strings.Join(v, "\n"), clientList[who])
+			ch <- message.ListMess(strings.Join(v, "\n"), clientList[who])
 		}
 		if strings.Index(input.Text(), "Identity") != -1 {
-			private <- message.ListMess(clientList[who], clientList[who])
+			ch <- message.ListMess(clientList[who], clientList[who])
 		}
 	}
 	// Needs error handling for input.Err()
