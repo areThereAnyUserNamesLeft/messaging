@@ -13,11 +13,9 @@ import (
 var clientList map[string]string = make(map[string]string)
 
 func main() {
-	//	clientList := make(map[string]uint64)
 	listener, err := net.Listen("tcp", "localhost:9999")
 	if err != nil {
 		log.Fatal(err)
-
 	}
 	go broadcast() // Sends messages to all users
 	for {
@@ -35,18 +33,25 @@ var (
 	entering = make(chan client)
 	leaving  = make(chan client)
 	messages = make(chan string) // All messages from clients
+	private  = make(chan string) // Messages for this client clients
 )
 
 func broadcast() {
 	clients := make(map[client]bool) // all incoming clients
+
 	for {
 		select {
+		case prv := <-private:
+			for cli := range clients {
+				log.Println(cli)
+				log.Println(clients[cli])
+				log.Println(prv)
+			}
 		case msg := <-messages:
 			// Send incoming messages to all clients outgoing message channel
 			for cli := range clients {
 				cli <- msg
 				log.Println(msg)
-
 			}
 		case cli := <-entering:
 			clients[cli] = true
@@ -60,12 +65,16 @@ func broadcast() {
 		}
 	}
 }
+
 func handleConn(conn net.Conn) {
 	ch := make(chan string) // outgoing client messages
 	go clientWriter(conn, ch)
 
-	who := conn.RemoteAddr().String()                     // return here change IP to UiD
+	who := conn.RemoteAddr().String() // return here change IP to UiD
+	fmt.Println(conn.RemoteAddr().String())
+	fmt.Println(conn.LocalAddr().String())
 	clientList[who] = strconv.Itoa(int(message.Uint64())) // No point saving as a uint64 if I only need it as a str
+	fmt.Println(clientList[who])
 	ch <- "You are " + who
 	log.Println(clientList[who] + " connected ")
 	entering <- ch
@@ -74,7 +83,7 @@ func handleConn(conn net.Conn) {
 	for input.Scan() {
 		log.Println(clientList[who] + " :sent " + input.Text())
 		if strings.Index(input.Text(), "Relay") != -1 {
-			messages <- input.Text()
+			messages <- message.RelayMess(input.Text(), clientList[who])
 		}
 		if strings.Index(input.Text(), "List") != -1 {
 			v := make([]string, len(clientList))
@@ -83,10 +92,11 @@ func handleConn(conn net.Conn) {
 				v[idx] = value
 				idx++
 			}
-			messages <- strings.Join(v, "\n")
+
+			private <- message.ListMess(strings.Join(v, "\n"), clientList[who])
 		}
 		if strings.Index(input.Text(), "Identity") != -1 {
-			messages <- clientList[who]
+			private <- message.ListMess(clientList[who], clientList[who])
 		}
 	}
 	// Needs error handling for input.Err()
@@ -94,8 +104,11 @@ func handleConn(conn net.Conn) {
 	log.Println(clientList[who] + " disconnected")
 	conn.Close()
 }
+
 func clientWriter(conn net.Conn, ch <-chan string) {
+
 	for msg := range ch {
 		fmt.Fprintln(conn, msg) // ignore network errors
 	}
+
 }
