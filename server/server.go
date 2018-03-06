@@ -74,18 +74,27 @@ func handleConn(conn net.Conn) {
 	input := bufio.NewScanner(conn)
 	for input.Scan() {
 		if firstWord(input.Text()) == "relay:" {
-			messages <- message.RelayMess(input.Text(), clientList[who])
+			if len(input.Text()) > int(1024*1000) {
+				ch <- "That message is too long to send, why not send two?"
+			} else {
+				messages <- message.RelayMess(input.Text(), clientList[who])
+			}
 		} else if firstWord(input.Text()) == "list:" {
+
 			v := make([]string, len(clientList))
 			idx := 0
 			for _, value := range clientList {
 				v[idx] = value
+				if idx > 254 {
+					break
+				}
 				idx++
 			}
 
-			ch <- message.ListMess(strings.Join(v, "\n"), clientList[who])
+			ch <- message.ListMess(strings.Join(v, "',  '"), clientList[who])
+
 		} else if firstWord(input.Text()) == "identity:" {
-			ch <- message.ListMess(clientList[who], clientList[who])
+			ch <- message.IdentityMess(clientList[who], clientList[who])
 		} else {
 			advice := " :no messaging protocol used - Please make sure you prefix your message with 'List:', 'Identify': or 'Relay:' then <your message> \n"
 			ch <- clientList[who] + advice + input.Text()
