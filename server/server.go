@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var clientList map[string]uint64 = make(map[string]uint64)
+var clientList map[string]string = make(map[string]string)
 
 func main() {
 	//	clientList := make(map[string]uint64)
@@ -64,22 +64,34 @@ func handleConn(conn net.Conn) {
 	ch := make(chan string) // outgoing client messages
 	go clientWriter(conn, ch)
 
-	who := conn.RemoteAddr().String() // return here change IP to UiD
-	clientList[who] = message.Uint64()
+	who := conn.RemoteAddr().String()                     // return here change IP to UiD
+	clientList[who] = strconv.Itoa(int(message.Uint64())) // No point saving as a uint64 if I only need it as a str
 	ch <- "You are " + who
-	log.Println(strconv.Itoa(int(clientList[who])) + " connected ")
+	log.Println(clientList[who] + " connected ")
 	entering <- ch
 
 	input := bufio.NewScanner(conn)
 	for input.Scan() {
-		log.Println(strconv.Itoa(int(clientList[who])) + " :sent " + input.Text())
+		log.Println(clientList[who] + " :sent " + input.Text())
 		if strings.Index(input.Text(), "Relay") != -1 {
 			messages <- input.Text()
+		}
+		if strings.Index(input.Text(), "List") != -1 {
+			v := make([]string, len(clientList))
+			idx := 0
+			for _, value := range clientList {
+				v[idx] = value
+				idx++
+			}
+			messages <- strings.Join(v, "\n")
+		}
+		if strings.Index(input.Text(), "Identity") != -1 {
+			messages <- clientList[who]
 		}
 	}
 	// Needs error handling for input.Err()
 	leaving <- ch
-	log.Println(strconv.Itoa(int(clientList[who])) + " disconnected")
+	log.Println(clientList[who] + " disconnected")
 	conn.Close()
 }
 func clientWriter(conn net.Conn, ch <-chan string) {
