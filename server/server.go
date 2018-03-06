@@ -87,7 +87,7 @@ func handleConn(conn net.Conn) {
 		} else if firstWord(input.Text()) == "identity:" {
 			ch <- message.ListMess(clientList[who], clientList[who])
 		} else {
-			advice := " :no messaging protocol used - Please make sure you prefix your message with 'List:', 'Identify': or 'Reply:' then <your message> \n"
+			advice := " :no messaging protocol used - Please make sure you prefix your message with 'List:', 'Identify': or 'Relay:' then <your message> \n"
 			ch <- clientList[who] + advice + input.Text()
 			ch <- "Don't forget your colon ':' (always good advice!) :)"
 
